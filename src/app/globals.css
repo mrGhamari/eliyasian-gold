@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-vazirmatn), "Vazirmatn", "Tahoma", sans-serif;
+  --color-gold-50: #fbf7ec;
+  --color-gold-100: #f4ead0;
+  --color-gold-500: #c9a227;
+  --color-gold-600: #a98720;
+  --color-gold-700: #86691a;
+}
+
+/* Keep polled number updates layout-stable. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle highlight when a polled value changes (no layout shift). */
+@keyframes price-flash {
+  0% {
+    background-color: var(--color-gold-100);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.price-flash {
+  animation: price-flash 1.2s ease-out;
+  border-radius: 0.25rem;
+}
+
+/* Live dot pulse on the freshness badge. */
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.live-dot {
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .price-flash,
+  .live-dot {
+    animation: none;
+  }
+}
