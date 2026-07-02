@@ -1,0 +1,90 @@
+# قیمت طلا الیاسیان — Elyasian Gold Price
+
+A single-page, Persian (RTL), SEO-friendly site showing live Iranian gold market prices, plus Elyasian's own buy/sell price for 18-karat gold (market rate + a fixed adjustment). Stateless: no database, no auth, no admin panel.
+
+**Stack:** Next.js 15 (App Router, ISR) · TypeScript strict · Tailwind CSS · Vitest · Node 20+ · Docker (Liara).
+
+## How it works
+
+- The main page is ISR (`revalidate = 60`), so the served HTML always contains real price digits (SEO), regenerated at most once per minute.
+- All data flows through one function, `getPrices()` (`src/lib/prices.ts`): provider fetch → zod parse/normalize → pricing engine → typed snapshot.
+- After hydration the client polls `/api/price` every 45 s and updates numbers in place with zero layout shift.
+- Money is **integer rials** everywhere internally (USD ounce is integer cents). The display layer converts to toman (÷10) with fa-IR digits. No float price math exists.
+
+### Upstream quota protection (hard business constraint: 1500 req/day)
+
+Upstream usage stays at ~1 request / 60 s regardless of traffic, enforced by three layers:
+
+1. **In-memory 60 s TTL cache** in front of the provider in `getPrices()`. App Router route handlers are dynamic per-request, so this layer is what guarantees `/api/price` polling can't multiply upstream calls. Verified by unit test (`src/lib/prices.test.ts` proves 25 back-to-back calls → 1 provider fetch).
+2. **Next.js Data Cache** on the real provider's inner `fetch` (`next: { revalidate: 60, tags: ['prices'] }`).
+3. **ISR** on the page itself.
+
+### Resilience
+
+Upstream failure never produces an error page. The last successful snapshot is kept in memory (last-known-good) and served with its **original** timestamp; past `STALE_WARN_SECONDS` the UI shows «قیمت‌ها ممکن است به‌روز نباشند» and `/api/health` flips to 503. Cold start with upstream down renders HTTP 200 with a skeleton («در حال دریافت قیمت…») and the client retries every 5 s.
+
+> **Single-instance assumption:** the in-memory cache and last-known-good live in process memory. This is correct for the deployment target (one long-running Node container on Liara). Scaling to multiple replicas would multiply upstream usage per replica and desynchronize staleness — revisit before scaling out.
+
+## Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PRICE_PROVIDER` | `mock` | `brsapi` \| `mock`. Mock is the dev/test default. |
+| `BRSAPI_KEY` | — | BrsApi key. **Server-side only — never `NEXT_PUBLIC_`.** |
+| `PRICE_ADJ_RIALS` | `1000000` | Fixed adjustment in integer rials (+100,000 toman). |
+| `PRICE_ADJ_ITEMS` | `gold_18` | Comma-separated item keys the adjustment applies to. Keys: `gold_18`, `coin_emami`, `coin_half`, `coin_quarter`, `ounce_global`. |
+| `PRICE_FREEZE` | `false` | `true` withholds Elyasian buy/sell and shows the freeze banner; market data stays live. |
+| `STALE_WARN_SECONDS` | `600` | Staleness threshold for the UI warning and `/api/health` 503. |
+| `SITE_URL` | `http://localhost:3000` | Public origin for canonical/OG/sitemap/robots. |
+| `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | — | Optional staleness alert (see below). Silently off when unset. |
+
+Pricing rules are read exclusively through `getRules()` (`src/lib/pricing/rules.ts`), so a DB-backed rules source can replace the env implementation later without touching any caller. Rule changes require a restart/redeploy.
+
+## Local development
+
+```bash
+npm install
+cp .env.example .env.local   # mock provider by default
+npm run dev                  # http://localhost:3000
+```
+
+Scripts: `npm run lint` · `npm run typecheck` · `npm run test` · `npm run build`.
+
+## Switching to the real provider (BrsApi)
+
+> ⚠️ **`BrsApiProvider` is currently a stub.** The spec's Section 4 (issued endpoint URL + one real sample JSON response) was never supplied, and upstream field names must not be guessed. Until it's completed, `PRICE_PROVIDER=brsapi` degrades gracefully (loading state / last-known-good) but fetches nothing.
+
+To complete it, follow the TODO checklist at the top of `src/lib/providers/brsapi.ts`:
+
+1. Set the issued endpoint, reading the key from `BRSAPI_KEY`.
+2. Derive the zod schema strictly from a real sample response.
+3. Map upstream entries to the internal keys and **normalize to integer rials at the provider boundary** (determine rial-vs-toman from the sample and document it).
+4. Missing/unknown upstream items are skipped with a `console.warn` — never a crash.
+
+Then set `PRICE_PROVIDER=brsapi` and `BRSAPI_KEY=...`. Nothing outside the provider file + env needs to change.
+
+## Deploying to Liara
+
+```bash
+npm i -g @liara/cli
+liara login
+liara deploy         # uses liara.json (platform: docker, port: 3000)
+```
+
+Set the env vars in the Liara dashboard (or `liara env set ...`): at minimum `PRICE_PROVIDER=brsapi`, `BRSAPI_KEY`, `SITE_URL=https://your-domain`.
+
+**Domain/SSL:** add your custom domain in the Liara dashboard (Domains → add, point DNS at Liara) and enable the free SSL certificate; then update `SITE_URL` to the https origin so canonical/OG/sitemap URLs are correct.
+
+The image is a multi-stage Node 20-alpine build of Next.js `output: 'standalone'`; it respects Liara's `PORT` env.
+
+## Monitoring & alerting
+
+- **`GET /api/health`** is the primary alerting surface: `{ ok, lastFetchAt, staleSeconds, provider }`, HTTP 200 when healthy, **503 when `staleSeconds > STALE_WARN_SECONDS`**. Point any external uptime monitor (UptimeRobot, Better Stack, …) at it.
+- Fetch/parse failures are logged as structured JSON on stdout/stderr (Liara collects these).
+- Optional Telegram alert: set `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` to get one message on the transition to stale (throttled to 1 per 30 min). **Note:** `api.telegram.org` may be unreachable from Iranian datacenters — the external monitor on `/api/health` is the reliable path.
+
+## Notes
+
+- Buy and sell prices are currently identical (`market + PRICE_ADJ_RIALS`) by explicit business decision, but are modeled as separate fields because they are expected to diverge.
+- fa-IR number formatting uses the standard Persian thousands separator «٬» (U+066C), e.g. «۱۰٬۱۰۰٬۰۰۰ تومان».
+- A rounding hook exists in the pricing rules (round Elyasian prices to the nearest N rials, per-item capable); it defaults to N=1 (off).
