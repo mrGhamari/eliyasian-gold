@@ -27,9 +27,13 @@ const ENDPOINT = "https://api.talasea.ir/api/market/getGoldPrice";
 const RIALS_PER_GRAM_FACTOR = 10_000;
 
 // Derived strictly from the real sample response (2026-07-05). Only the
-// field we consume is validated; unknown fields pass through untouched.
+// fields we consume are validated; unknown fields pass through untouched.
+// `price` is critical (fail hard); the disable flags are auxiliary, so their
+// absence must not take the whole price feed down (treated as false).
 const talaseaResponseSchema = z.object({
   price: z.string().regex(/^\d+$/, "price must be a numeric string"),
+  disableBuy: z.boolean().optional(),
+  disableSell: z.boolean().optional(),
 });
 
 export class TalaseaProvider implements PriceProvider {
@@ -53,10 +57,16 @@ export class TalaseaProvider implements PriceProvider {
     const tomanPerMilligram = Number.parseInt(parsed.data.price, 10);
     const rialsPerGram = tomanPerMilligram * RIALS_PER_GRAM_FACTOR;
 
+    // Either flag means Talasea has halted a side of trading, so its quote
+    // is not safe to sell against — surface it as an upstream freeze.
+    const upstreamFrozen =
+      parsed.data.disableBuy === true || parsed.data.disableSell === true;
+
     return {
       items: [{ key: "gold_18", currency: "IRR", amount: rialsPerGram }],
       fetchedAt: new Date().toISOString(),
       source: "talasea",
+      ...(upstreamFrozen ? { upstreamFrozen: true } : {}),
     };
   }
 }

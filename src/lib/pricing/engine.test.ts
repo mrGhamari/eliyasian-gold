@@ -84,6 +84,23 @@ describe("applyPricing — freeze behavior", () => {
     expect(gold?.marketAmount).toBe(100_000_000);
     expect(result.fetchedAt).toBe(snapshot.fetchedAt);
   });
+
+  it("treats an upstream trading halt exactly like PRICE_FREEZE", () => {
+    const halted: MarketSnapshot = { ...snapshot, upstreamFrozen: true };
+    const result = applyPricing(halted, rules({ freeze: false }));
+    expect(result.frozen).toBe(true);
+    const gold = result.items.find((i) => i.key === "gold_18");
+    expect(gold?.elyasianSellRials).toBeUndefined();
+    expect(gold?.elyasianBuyRials).toBeUndefined();
+    expect(gold?.marketAmount).toBe(100_000_000);
+  });
+
+  it("stays unfrozen when upstreamFrozen is absent or false", () => {
+    expect(applyPricing(snapshot, rules()).frozen).toBe(false);
+    expect(
+      applyPricing({ ...snapshot, upstreamFrozen: false }, rules()).frozen,
+    ).toBe(false);
+  });
 });
 
 describe("applyPricing — rounding hook", () => {

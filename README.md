@@ -33,7 +33,7 @@ Upstream failure never produces an error page. The last successful snapshot is k
 | `BRSAPI_KEY` | — | BrsApi key (brsapi is still a stub). **Server-side only — never `NEXT_PUBLIC_`.** |
 | `PRICE_ADJ_RIALS` | `1000000` | Fixed adjustment in integer rials (+100,000 toman). |
 | `PRICE_ADJ_ITEMS` | `gold_18` | Comma-separated item keys the adjustment applies to. Keys: `gold_18`, `coin_emami`, `coin_half`, `coin_quarter`, `ounce_global`. |
-| `PRICE_FREEZE` | `false` | `true` withholds Elyasian buy/sell and shows the freeze banner; market data stays live. |
+| `PRICE_FREEZE` | `false` | `true` withholds Elyasian buy/sell and shows the freeze banner; market data stays live. The banner also triggers automatically when the upstream halts trading (see Talasea below). |
 | `STALE_WARN_SECONDS` | `600` | Staleness threshold for the UI warning and `/api/health` 503. |
 | `SITE_URL` | `http://localhost:3000` | Public origin for canonical/OG/sitemap/robots. |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | — | Optional staleness alert (see below). Silently off when unset. |
@@ -57,6 +57,7 @@ Scripts: `npm run lint` · `npm run typecheck` · `npm run test` · `npm run bui
 - Upstream `price` is a numeric string in **toman per milligram (سوت)** of 18k gold — verified against published market rates on 2026-07-05. Normalized to integer rials/gram at the provider boundary: `price × 10,000`.
 - Talasea supplies **only 18k gold** — no coins, no global ounce — so the «نرخ بازار» section hides itself automatically (it reappears if a future provider supplies those items).
 - The upstream fetch uses the Next.js Data Cache (`revalidate: 60`) on top of the in-memory TTL cache, so the quota math from above is unchanged.
+- Talasea's `disableBuy` / `disableSell` flags map to `upstreamFrozen`: if **either** side of trading is halted, the quote isn't safe to sell against, so the site behaves exactly as with `PRICE_FREEZE=true` (Elyasian prices withheld, freeze banner shown) until the flags clear. `PRICE_FREEZE` remains the manual override on top. The flags are optional in validation — if Talasea ever drops them, prices keep flowing (unfrozen) rather than failing the feed.
 
 ### BrsApi (stub, optional future provider)
 

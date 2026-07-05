@@ -47,6 +47,13 @@ export interface MarketSnapshot {
   source: string;
   /** Present and true only for the mock provider. */
   mock?: boolean;
+  /**
+   * True when the upstream platform has halted trading (buy or sell) and its
+   * quoted price should not be sold against. The pricing engine treats this
+   * exactly like PRICE_FREEZE: Elyasian prices are withheld and the freeze
+   * banner is shown, while market data stays visible.
+   */
+  upstreamFrozen?: boolean;
 }
 
 export interface PriceProvider {

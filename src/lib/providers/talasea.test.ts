@@ -60,6 +60,27 @@ describe("TalaseaProvider", () => {
     );
   });
 
+  it("maps the disable flags to upstreamFrozen (either side halts)", async () => {
+    mockFetchJson(SAMPLE);
+    let snapshot = await new TalaseaProvider().fetchMarketSnapshot();
+    expect(snapshot.upstreamFrozen).toBeUndefined();
+
+    mockFetchJson({ ...SAMPLE, disableBuy: true });
+    snapshot = await new TalaseaProvider().fetchMarketSnapshot();
+    expect(snapshot.upstreamFrozen).toBe(true);
+
+    mockFetchJson({ ...SAMPLE, disableSell: true });
+    snapshot = await new TalaseaProvider().fetchMarketSnapshot();
+    expect(snapshot.upstreamFrozen).toBe(true);
+  });
+
+  it("tolerates missing disable flags (price still served, not frozen)", async () => {
+    mockFetchJson({ price: "17764" });
+    const snapshot = await new TalaseaProvider().fetchMarketSnapshot();
+    expect(snapshot.items[0].amount).toBe(177_640_000);
+    expect(snapshot.upstreamFrozen).toBeUndefined();
+  });
+
   it("throws on non-OK upstream status", async () => {
     mockFetchJson({}, 502);
     await expect(new TalaseaProvider().fetchMarketSnapshot()).rejects.toThrow(

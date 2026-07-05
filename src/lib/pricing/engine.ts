@@ -38,6 +38,9 @@ export function applyPricing(
   snapshot: MarketSnapshot,
   rules: PricingRules,
 ): DisplaySnapshot {
+  // Manual freeze (PRICE_FREEZE) and upstream trading halt behave identically.
+  const frozen = rules.freeze || snapshot.upstreamFrozen === true;
+
   const items: DisplayItem[] = snapshot.items.map((item) => {
     const display: DisplayItem = {
       key: item.key,
@@ -49,7 +52,7 @@ export function applyPricing(
     const isAdjusted =
       item.currency === "IRR" && rules.adjustmentItems.includes(item.key);
 
-    if (isAdjusted && !rules.freeze) {
+    if (isAdjusted && !frozen) {
       const nearest = rules.rounding.perItem[item.key] ?? rules.rounding.default;
       const priced = roundToNearestRials(
         item.amount + rules.adjustmentRials,
@@ -68,7 +71,7 @@ export function applyPricing(
     fetchedAt: snapshot.fetchedAt,
     source: snapshot.source,
     ...(snapshot.mock ? { mock: true } : {}),
-    frozen: rules.freeze,
+    frozen,
   };
 }
 
