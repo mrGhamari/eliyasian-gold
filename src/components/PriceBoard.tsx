@@ -69,7 +69,7 @@ export function PriceBoard({ initialData }: { initialData: PriceResult }) {
           ) : null
         }
       />
-      <MarketTable items={snapshot?.items ?? []} />
+      <MarketTable items={snapshot?.items ?? []} loading={!snapshot} />
     </div>
   );
 }

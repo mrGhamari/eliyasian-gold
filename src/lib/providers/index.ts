@@ -1,5 +1,6 @@
 import { BrsApiProvider } from "./brsapi";
 import { MockProvider } from "./mock";
+import { TalaseaProvider } from "./talasea";
 import type { PriceProvider } from "./types";
 
 /**
@@ -10,6 +11,8 @@ import type { PriceProvider } from "./types";
 export function getPriceProvider(): PriceProvider {
   const which = (process.env.PRICE_PROVIDER ?? "mock").trim().toLowerCase();
   switch (which) {
+    case "talasea":
+      return new TalaseaProvider();
     case "brsapi":
       return new BrsApiProvider();
     case "mock":

@@ -29,8 +29,8 @@ Upstream failure never produces an error page. The last successful snapshot is k
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PRICE_PROVIDER` | `mock` | `brsapi` \| `mock`. Mock is the dev/test default. |
-| `BRSAPI_KEY` | — | BrsApi key. **Server-side only — never `NEXT_PUBLIC_`.** |
+| `PRICE_PROVIDER` | `mock` | `talasea` \| `brsapi` \| `mock`. Mock is the dev/test default; **talasea is the real provider** (public endpoint, no key). |
+| `BRSAPI_KEY` | — | BrsApi key (brsapi is still a stub). **Server-side only — never `NEXT_PUBLIC_`.** |
 | `PRICE_ADJ_RIALS` | `1000000` | Fixed adjustment in integer rials (+100,000 toman). |
 | `PRICE_ADJ_ITEMS` | `gold_18` | Comma-separated item keys the adjustment applies to. Keys: `gold_18`, `coin_emami`, `coin_half`, `coin_quarter`, `ounce_global`. |
 | `PRICE_FREEZE` | `false` | `true` withholds Elyasian buy/sell and shows the freeze banner; market data stays live. |
@@ -50,18 +50,17 @@ npm run dev                  # http://localhost:3000
 
 Scripts: `npm run lint` · `npm run typecheck` · `npm run test` · `npm run build`.
 
-## Switching to the real provider (BrsApi)
+## Real provider: Talasea
 
-> ⚠️ **`BrsApiProvider` is currently a stub.** The spec's Section 4 (issued endpoint URL + one real sample JSON response) was never supplied, and upstream field names must not be guessed. Until it's completed, `PRICE_PROVIDER=brsapi` degrades gracefully (loading state / last-known-good) but fetches nothing.
+`PRICE_PROVIDER=talasea` uses the public Talasea endpoint (`https://api.talasea.ir/api/market/getGoldPrice`, no API key). Details in `src/lib/providers/talasea.ts`:
 
-To complete it, follow the TODO checklist at the top of `src/lib/providers/brsapi.ts`:
+- Upstream `price` is a numeric string in **toman per milligram (سوت)** of 18k gold — verified against published market rates on 2026-07-05. Normalized to integer rials/gram at the provider boundary: `price × 10,000`.
+- Talasea supplies **only 18k gold** — no coins, no global ounce — so the «نرخ بازار» section hides itself automatically (it reappears if a future provider supplies those items).
+- The upstream fetch uses the Next.js Data Cache (`revalidate: 60`) on top of the in-memory TTL cache, so the quota math from above is unchanged.
 
-1. Set the issued endpoint, reading the key from `BRSAPI_KEY`.
-2. Derive the zod schema strictly from a real sample response.
-3. Map upstream entries to the internal keys and **normalize to integer rials at the provider boundary** (determine rial-vs-toman from the sample and document it).
-4. Missing/unknown upstream items are skipped with a `console.warn` — never a crash.
+### BrsApi (stub, optional future provider)
 
-Then set `PRICE_PROVIDER=brsapi` and `BRSAPI_KEY=...`. Nothing outside the provider file + env needs to change.
+`BrsApiProvider` remains an unwired stub — useful later if coin/ounce data is wanted, since Talasea doesn't provide it. Completing it requires the issued endpoint + one real sample response (field names must not be guessed); follow the TODO checklist in `src/lib/providers/brsapi.ts`. Until then `PRICE_PROVIDER=brsapi` degrades gracefully but fetches nothing.
 
 ## Deploying to Liara
 
@@ -71,7 +70,7 @@ liara login
 liara deploy         # uses liara.json (platform: docker, port: 3000)
 ```
 
-Set the env vars in the Liara dashboard (or `liara env set ...`): at minimum `PRICE_PROVIDER=brsapi`, `BRSAPI_KEY`, `SITE_URL=https://your-domain`.
+Set the env vars in the Liara dashboard (or `liara env set ...`): at minimum `PRICE_PROVIDER=talasea` and `SITE_URL=https://your-domain`.
 
 **Domain/SSL:** add your custom domain in the Liara dashboard (Domains → add, point DNS at Liara) and enable the free SSL certificate; then update `SITE_URL` to the https origin so canonical/OG/sitemap URLs are correct.
 

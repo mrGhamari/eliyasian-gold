@@ -20,10 +20,21 @@ function marketValue(item: DisplayItem): { value: string; unit: string } {
 }
 
 /** Market-info section: سکه امامی، نیم‌سکه، ربع‌سکه، انس جهانی. */
-export function MarketTable({ items }: { items: DisplayItem[] }) {
+export function MarketTable({
+  items,
+  loading,
+}: {
+  items: DisplayItem[];
+  /** True while no snapshot exists yet (cold start) — show the skeleton. */
+  loading: boolean;
+}) {
   const rows = MARKET_KEYS.map((key) =>
     items.find((item) => item.key === key),
   ).filter((item): item is DisplayItem => item !== undefined);
+
+  // A snapshot exists but carries none of the market items (e.g. the talasea
+  // provider only supplies gold_18): the section simply doesn't apply.
+  if (!loading && rows.length === 0) return null;
 
   return (
     <section aria-labelledby="market-title" className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
