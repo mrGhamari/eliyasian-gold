@@ -1,5 +1,5 @@
 import { maybeSendStalenessAlert } from "./alerts";
-import { applyPricing, isStale, staleSecondsOf } from "./pricing/engine";
+import { applyPricing, staleSecondsOf } from "./pricing/engine";
 import type { DisplaySnapshot } from "./pricing/engine";
 import { getRules } from "./pricing/rules";
 import { getPriceProvider } from "./providers";
@@ -14,8 +14,8 @@ import type { MarketSnapshot } from "./providers/types";
  *    handlers are dynamic per-request in the App Router, so this layer is
  *    what guarantees that client polling of /api/price cannot multiply
  *    upstream calls — provider-agnostic and verified by unit test.
- * 2. BrsApiProvider's inner fetch() additionally uses the Next.js Data Cache
- *    (`next: { revalidate: 60, tags: ["prices"] }`) as required by the spec.
+ * 2. The real provider's inner fetch() additionally uses the Next.js Data
+ *    Cache (`next: { revalidate: 60, tags: ["prices"] }`).
  * 3. The page itself is ISR (`revalidate = 60`), so HTML is served from cache.
  *
  * Last-known-good: the last successful snapshot is kept in module memory and
@@ -80,9 +80,12 @@ async function getMarketSnapshot(): Promise<MarketSnapshot | null> {
         error: String(error),
       }),
     );
-    // Serve last-known-good with its original timestamp; re-check upstream
-    // on the next call rather than caching the failure for a full TTL.
-    state.snapshot = null;
+    // Serve last-known-good and cache it for the TTL so a sustained outage
+    // can't multiply upstream calls (the whole point of the ~1 req/60s budget
+    // is to hold during an outage, not just when healthy). Cold start with no
+    // good snapshot yet leaves snapshot null, so the next call still retries.
+    state.snapshot = state.lastKnownGood;
+    state.cachedAtMs = nowMs;
     return state.lastKnownGood;
   }
 }
@@ -99,7 +102,9 @@ export interface PriceResult {
 
 export async function getPrices(): Promise<PriceResult> {
   const rules = getRules();
-  const providerName = (process.env.PRICE_PROVIDER ?? "mock").trim() || "mock";
+  // Authoritative name from the same factory that selects the provider — a
+  // second env read here drifts on casing/fallback from providers/index.ts.
+  const providerName = getPriceProvider().name;
   const market = await getMarketSnapshot();
   const nowMs = Date.now();
 
@@ -114,7 +119,7 @@ export async function getPrices(): Promise<PriceResult> {
   }
 
   const staleSeconds = staleSecondsOf(market.fetchedAt, nowMs);
-  const stale = isStale(market.fetchedAt, nowMs, rules.staleWarnSeconds);
+  const stale = staleSeconds > rules.staleWarnSeconds;
   maybeSendStalenessAlert(stale, staleSeconds, nowMs);
 
   return {
