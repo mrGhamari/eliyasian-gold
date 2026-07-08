@@ -22,6 +22,12 @@ export function PriceBoard({ initialData }: { initialData: PriceResult }) {
   // from the server value so SSR markup and hydration match.
   const [stale, setStale] = useState(initialData.stale);
   const inFlight = useRef(false);
+  // Anchor for local staleness aging. Uses ONLY elapsed time on the client's
+  // own clock (never the absolute server timestamp), so a skewed client clock
+  // can't produce a false "outdated" warning. Ages the server's staleSeconds
+  // forward between polls — needed because a network outage stops polls from
+  // landing, yet the badge must still flip to stale on its own.
+  const anchor = useRef({ atMs: 0, staleSeconds: initialData.staleSeconds });
 
   const refresh = useCallback(async () => {
     if (inFlight.current) return;
@@ -32,12 +38,19 @@ export function PriceBoard({ initialData }: { initialData: PriceResult }) {
       const next = (await res.json()) as PriceResult;
       setData(next);
       setStale(next.stale);
+      anchor.current = { atMs: Date.now(), staleSeconds: next.staleSeconds };
     } catch {
       // Network hiccup: keep showing the current data; next tick retries.
     } finally {
       inFlight.current = false;
     }
   }, []);
+
+  // Anchor the server snapshot to the client clock on mount (Date.now() must
+  // not run during render/SSR — it would mismatch hydration).
+  useEffect(() => {
+    anchor.current = { atMs: Date.now(), staleSeconds: initialData.staleSeconds };
+  }, [initialData.staleSeconds]);
 
   useEffect(() => {
     const interval = data.snapshot ? POLL_MS : RETRY_MS;
@@ -47,13 +60,16 @@ export function PriceBoard({ initialData }: { initialData: PriceResult }) {
 
   useEffect(() => {
     const id = setInterval(() => {
-      const fetchedAt = data.snapshot?.fetchedAt;
-      if (!fetchedAt) return;
-      const ageSeconds = (Date.now() - Date.parse(fetchedAt)) / 1000;
-      setStale(ageSeconds > data.staleWarnSeconds);
+      const { atMs, staleSeconds } = anchor.current;
+      if (atMs === 0 || staleSeconds === null) return;
+      // Threshold mirrors the server rule (staleSeconds > staleWarnSeconds);
+      // staleWarnSeconds itself comes from the server, so only the operator is
+      // local — not worth a shared helper.
+      const age = staleSeconds + (Date.now() - atMs) / 1000;
+      setStale(age > data.staleWarnSeconds);
     }, TICK_MS);
     return () => clearInterval(id);
-  }, [data]);
+  }, [data.staleWarnSeconds]);
 
   const snapshot = data.snapshot;
   const gold = snapshot?.items.find((item) => item.key === "gold_18");

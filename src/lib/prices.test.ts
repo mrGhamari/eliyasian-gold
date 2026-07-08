@@ -89,6 +89,23 @@ describe("getPrices — resilience", () => {
     expect(result.staleSeconds).toBeNull();
   });
 
+  it("does not re-hit upstream on every call during a sustained outage", async () => {
+    const t0 = Date.now();
+    fetchMock.mockImplementationOnce(async () => snapshotAt(t0));
+    await getPrices();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(61_000); // past TTL -> one retry, which fails
+    fetchMock.mockRejectedValue(new Error("upstream down"));
+    await getPrices();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // Many more polls within the next TTL must serve last-known-good without
+    // hammering the down provider (the ~1 req/60s budget must hold in outages).
+    for (let i = 0; i < 10; i++) await getPrices();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("recovers on the next successful fetch after failures", async () => {
     fetchMock.mockRejectedValueOnce(new Error("upstream down"));
     await getPrices();

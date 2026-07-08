@@ -24,16 +24,21 @@ export function maybeSendStalenessAlert(
   staleSeconds: number,
   nowMs: number,
 ): void {
-  const becameStale = stale && !wasStale;
-  wasStale = stale;
-
-  if (!becameStale) return;
+  // Recovery resets the edge; only latch `wasStale` once we've actually sent,
+  // so a transition throttled now still fires on a later tick instead of being
+  // silently consumed (a second stale episode must not be swallowed).
+  if (!stale) {
+    wasStale = false;
+    return;
+  }
+  if (wasStale) return; // already handled this stale episode
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) return;
 
   if (nowMs - lastSentAtMs < THROTTLE_MS) return;
+  wasStale = true;
   lastSentAtMs = nowMs;
 
   const text = `⚠️ قیمت طلا الیاسیان: داده‌های قیمت ${staleSeconds} ثانیه است که به‌روز نشده‌اند.`;
