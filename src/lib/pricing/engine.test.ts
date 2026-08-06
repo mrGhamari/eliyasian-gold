@@ -16,7 +16,8 @@ const snapshot: MarketSnapshot = {
 
 function rules(overrides: Partial<PricingRules> = {}): PricingRules {
   return {
-    adjustmentRials: 1_000_000,
+    sellAdjustmentRials: 500_000,
+    buyAdjustmentRials: -500_000,
     adjustmentItems: ["gold_18"],
     freeze: false,
     staleWarnSeconds: 600,
@@ -26,11 +27,11 @@ function rules(overrides: Partial<PricingRules> = {}): PricingRules {
 }
 
 describe("applyPricing — adjustment formula", () => {
-  it("adds the fixed adjustment for buy AND sell (identical by business decision)", () => {
+  it("sells above and buys below the market rate", () => {
     const result = applyPricing(snapshot, rules());
     const gold = result.items.find((i) => i.key === "gold_18");
-    expect(gold?.elyasianSellRials).toBe(101_000_000);
-    expect(gold?.elyasianBuyRials).toBe(101_000_000);
+    expect(gold?.elyasianSellRials).toBe(100_500_000);
+    expect(gold?.elyasianBuyRials).toBe(99_500_000);
     expect(gold?.marketAmount).toBe(100_000_000);
   });
 
@@ -58,7 +59,7 @@ describe("applyPricing — PRICE_ADJ_ITEMS filtering", () => {
       rules({ adjustmentItems: ["gold_18", "coin_emami"] }),
     );
     const coin = result.items.find((i) => i.key === "coin_emami");
-    expect(coin?.elyasianSellRials).toBe(1_151_000_000);
+    expect(coin?.elyasianSellRials).toBe(1_150_500_000);
   });
 
   it("never adjusts USD items even if listed", () => {
@@ -114,7 +115,8 @@ describe("applyPricing — rounding hook", () => {
       rules({ rounding: { default: 10_000, perItem: {} } }),
     );
     const gold = result.items.find((i) => i.key === "gold_18");
-    expect(gold?.elyasianSellRials).toBe(101_000_000);
+    // 100,004,567 + 500,000 sell adj = 100,504,567 → nearest 10,000.
+    expect(gold?.elyasianSellRials).toBe(100_500_000);
     // Market rate itself is never rounded.
     expect(gold?.marketAmount).toBe(100_004_567);
   });
@@ -124,7 +126,7 @@ describe("applyPricing — rounding hook", () => {
       snapshot,
       rules({
         rounding: { default: 1, perItem: { gold_18: 1_000_000 } },
-        adjustmentRials: 1_400_000,
+        sellAdjustmentRials: 1_400_000,
       }),
     );
     const gold = result.items.find((i) => i.key === "gold_18");

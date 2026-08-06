@@ -8,12 +8,14 @@ afterEach(() => {
 
 describe("getRules (env-backed)", () => {
   it("provides spec defaults when envs are unset", () => {
-    vi.stubEnv("PRICE_ADJ_RIALS", "");
+    vi.stubEnv("PRICE_ADJ_SELL_RIALS", "");
+    vi.stubEnv("PRICE_ADJ_BUY_RIALS", "");
     vi.stubEnv("PRICE_ADJ_ITEMS", "");
     vi.stubEnv("PRICE_FREEZE", "");
     vi.stubEnv("STALE_WARN_SECONDS", "");
     const rules = getRules();
-    expect(rules.adjustmentRials).toBe(1_000_000);
+    expect(rules.sellAdjustmentRials).toBe(500_000);
+    expect(rules.buyAdjustmentRials).toBe(-500_000);
     expect(rules.freeze).toBe(false);
     expect(rules.staleWarnSeconds).toBe(600);
     expect(rules.rounding.default).toBe(1);
@@ -31,18 +33,20 @@ describe("getRules (env-backed)", () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  it("reads PRICE_ADJ_RIALS and PRICE_FREEZE", () => {
-    vi.stubEnv("PRICE_ADJ_RIALS", "2500000");
+  it("reads the buy/sell adjustments and PRICE_FREEZE", () => {
+    vi.stubEnv("PRICE_ADJ_SELL_RIALS", "600000");
+    vi.stubEnv("PRICE_ADJ_BUY_RIALS", "-600000");
     vi.stubEnv("PRICE_FREEZE", "true");
     const rules = getRules();
-    expect(rules.adjustmentRials).toBe(2_500_000);
+    expect(rules.sellAdjustmentRials).toBe(600_000);
+    expect(rules.buyAdjustmentRials).toBe(-600_000);
     expect(rules.freeze).toBe(true);
   });
 
   it("falls back on malformed integers with a warning", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.stubEnv("PRICE_ADJ_RIALS", "one million");
-    expect(getRules().adjustmentRials).toBe(1_000_000);
+    vi.stubEnv("PRICE_ADJ_SELL_RIALS", "one million");
+    expect(getRules().sellAdjustmentRials).toBe(500_000);
     expect(warn).toHaveBeenCalled();
   });
 });

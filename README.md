@@ -31,7 +31,8 @@ Upstream failure never produces an error page. The last successful snapshot is k
 | --- | --- | --- |
 | `PRICE_PROVIDER` | `mock` | `talasea` \| `brsapi` \| `mock`. Mock is the dev/test default; **talasea is the real provider** (public endpoint, no key). |
 | `BRSAPI_KEY` | — | BrsApi key (brsapi is still a stub). **Server-side only — never `NEXT_PUBLIC_`.** |
-| `PRICE_ADJ_RIALS` | `1000000` | Fixed adjustment in integer rials (+100,000 toman). |
+| `PRICE_ADJ_SELL_RIALS` | `500000` | Sell adjustment in integer rials (market **+** 50,000 toman). |
+| `PRICE_ADJ_BUY_RIALS` | `-500000` | Buy adjustment in integer rials (market **−** 50,000 toman; negative). |
 | `PRICE_ADJ_ITEMS` | `gold_18` | Comma-separated item keys the adjustment applies to. Keys: `gold_18`, `coin_emami`, `coin_half`, `coin_quarter`, `ounce_global`. |
 | `PRICE_FREEZE` | `false` | `true` withholds Elyasian buy/sell and shows the freeze banner; market data stays live. The banner also triggers automatically when the upstream halts trading (see Talasea below). |
 | `STALE_WARN_SECONDS` | `600` | Staleness threshold for the UI warning and `/api/health` 503. |
@@ -85,6 +86,6 @@ The image is a multi-stage Node 20-alpine build of Next.js `output: 'standalone'
 
 ## Notes
 
-- Buy and sell prices are currently identical (`market + PRICE_ADJ_RIALS`) by explicit business decision, but are modeled as separate fields because they are expected to diverge.
+- Sell price is `market + PRICE_ADJ_SELL_RIALS` and buy price is `market + PRICE_ADJ_BUY_RIALS` (buy adjustment is negative), so the shop sells above and buys below the market rate.
 - fa-IR number formatting uses the standard Persian thousands separator «٬» (U+066C), e.g. «۱۰٬۱۰۰٬۰۰۰ تومان».
 - A rounding hook exists in the pricing rules (round Elyasian prices to the nearest N rials, per-item capable); it defaults to N=1 (off).
