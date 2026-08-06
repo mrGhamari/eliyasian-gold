@@ -1,34 +1,56 @@
-# ── deps ─────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS deps
+# syntax=docker/dockerfile:1.7
+# Multi-stage build of the Next.js `output: 'standalone'` server.
+# Final image ships only the traced runtime (no dev deps, no source).
+
+ARG NODE_IMAGE=node:20.18-alpine
+
+# ── deps: install node_modules with a persistent npm cache ───────────────────
+FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci
 
-# ── build ────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS builder
+# ── builder: produce .next/standalone ────────────────────────────────────────
+FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# ── run ──────────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
+# ── runner: minimal, non-root runtime ────────────────────────────────────────
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
 
-RUN addgroup --system --gid 1001 nodejs \
-  && adduser --system --uid 1001 nextjs
+# tini = correct PID 1: forwards SIGTERM to Next and reaps zombies.
+# (busybox already provides wget for the HEALTHCHECK — no extra package.)
+RUN apk add --no-cache tini \
+ && addgroup --system --gid 1001 nodejs \
+ && adduser --system --uid 1001 nextjs
 
+# The standalone bundle carries its own minimal, traced node_modules.
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-USER nextjs
+# ISR regenerates pages into .next/cache at runtime — must be writable by the
+# app user (mount a volume here in compose to persist it across restarts).
+RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
 
-ENV PORT=3000
-ENV HOSTNAME=0.0.0.0
+USER nextjs
 EXPOSE 3000
 
+# Liveness only: `/` returns 200 whenever the process is up. A stale upstream
+# must NOT mark the container unhealthy — that's what /api/health (503 on stale)
+# is for, as an EXTERNAL alerting surface, not a container restart trigger.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "server.js"]

@@ -1,0 +1,35 @@
+# Single-instance by design: the 60s cache + last-known-good live in process
+# memory. Do NOT scale this to >1 replica — it multiplies upstream usage
+# (hard 1500 req/day cap) and desyncs staleness. See README.
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: elyasian-gold:latest
+    restart: unless-stopped
+    # Runtime env (PRICE_PROVIDER, SITE_URL, PRICE_ADJ_*, …).
+    # `cp .env.example .env` and fill it in before `docker compose up`.
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # Persist the ISR page cache across restarts (survives redeploys).
+      - isr-cache:/app/.next/cache
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  isr-cache:
