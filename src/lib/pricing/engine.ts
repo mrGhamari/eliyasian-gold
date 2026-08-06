@@ -16,9 +16,9 @@ export interface DisplayItem {
   marketAmount: number;
   /**
    * Elyasian shop prices in integer rials. Present only for items listed in
-   * PRICE_ADJ_ITEMS and only when prices are not frozen. Buy and sell are
-   * currently identical by explicit business decision, but modeled as
-   * separate fields because they are expected to diverge later.
+   * PRICE_ADJ_ITEMS and only when prices are not frozen. Sell = market +
+   * sellAdjustmentRials, buy = market + buyAdjustmentRials (buy adjustment is
+   * negative), so the shop sells above and buys below the market rate.
    */
   elyasianSellRials?: number;
   elyasianBuyRials?: number;
@@ -54,13 +54,14 @@ export function applyPricing(
 
     if (isAdjusted && !frozen) {
       const nearest = rules.rounding.perItem[item.key] ?? rules.rounding.default;
-      const priced = roundToNearestRials(
-        item.amount + rules.adjustmentRials,
+      display.elyasianSellRials = roundToNearestRials(
+        item.amount + rules.sellAdjustmentRials,
         nearest,
       );
-      // Identical today by business decision; kept as two fields on purpose.
-      display.elyasianSellRials = priced;
-      display.elyasianBuyRials = priced;
+      display.elyasianBuyRials = roundToNearestRials(
+        item.amount + rules.buyAdjustmentRials,
+        nearest,
+      );
     }
 
     return display;

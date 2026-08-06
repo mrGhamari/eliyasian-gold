@@ -7,8 +7,10 @@ import { isItemKey, type ItemKey } from "@/lib/providers/types";
  */
 
 export interface PricingRules {
-  /** Fixed adjustment added to the market rate, in integer rials. */
-  adjustmentRials: number;
+  /** Adjustment added to the market rate for the SELL price, integer rials. */
+  sellAdjustmentRials: number;
+  /** Adjustment added to the market rate for the BUY price, integer rials. */
+  buyAdjustmentRials: number;
   /** Internal item keys the adjustment applies to. */
   adjustmentItems: ItemKey[];
   /** true => withhold Elyasian buy/sell numbers and show the freeze banner. */
@@ -50,7 +52,10 @@ export function getRules(): PricingRules {
     });
 
   return {
-    adjustmentRials: intEnv("PRICE_ADJ_RIALS", 1_000_000),
+    // Sell price is market + 50,000 toman; buy price is market − 50,000 toman.
+    // (50,000 toman = 500,000 rials.)
+    sellAdjustmentRials: intEnv("PRICE_ADJ_SELL_RIALS", 500_000),
+    buyAdjustmentRials: intEnv("PRICE_ADJ_BUY_RIALS", -500_000),
     adjustmentItems,
     freeze: (process.env.PRICE_FREEZE ?? "false").trim().toLowerCase() === "true",
     staleWarnSeconds: intEnv("STALE_WARN_SECONDS", 600),
