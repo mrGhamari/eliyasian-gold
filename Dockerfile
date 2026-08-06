@@ -8,8 +8,14 @@ ARG NODE_IMAGE=node:20.18-alpine
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Resilient install for flaky networks: retry with backoff, longer timeouts.
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+    npm ci --no-audit --no-fund \
+      --fetch-retries=5 \
+      --fetch-retry-factor=2 \
+      --fetch-retry-mintimeout=20000 \
+      --fetch-retry-maxtimeout=120000 \
+      --fetch-timeout=600000
 
 # ── builder: produce .next/standalone ────────────────────────────────────────
 FROM ${NODE_IMAGE} AS builder
