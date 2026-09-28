@@ -34,6 +34,7 @@ function mockFetchJson(body: unknown, status = 200): void {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 describe("TalaseaProvider", () => {
@@ -57,6 +58,18 @@ describe("TalaseaProvider", () => {
     expect(fetch).toHaveBeenCalledWith(
       "https://api.talasea.ir/api/market/getGoldPrice",
       { cache: "no-store", signal: expect.any(AbortSignal) },
+    );
+  });
+
+  it("uses a build-time-safe cache mode for the static export", async () => {
+    // Next.js rejects no-store fetches while statically exporting.
+    vi.stubEnv("STATIC_EXPORT", "true");
+    mockFetchJson(SAMPLE);
+    await new TalaseaProvider().fetchMarketSnapshot();
+
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.talasea.ir/api/market/getGoldPrice",
+      { cache: "force-cache", signal: expect.any(AbortSignal) },
     );
   });
 
