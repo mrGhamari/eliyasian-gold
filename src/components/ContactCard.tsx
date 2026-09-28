@@ -1,4 +1,4 @@
-import { SHOP_ADDRESS, SHOP_PHONES } from "@/lib/site";
+import { SHOP_ADDRESS, SHOP_DIRECTIONS, SHOP_PHONES } from "@/lib/site";
 
 function PhoneIcon() {
   return (
@@ -35,7 +35,7 @@ function LocationIcon() {
   );
 }
 
-/** Shop contact section: tappable phone numbers and the store address. */
+/** Shop contact section: tappable phone numbers, the store address and directions. */
 export function ContactCard() {
   return (
     <section
@@ -65,6 +65,25 @@ export function ContactCard() {
       <div className="mt-4 flex items-start gap-3 border-t border-gold-100 pt-4">
         <LocationIcon />
         <p className="text-sm leading-7 text-neutral-700">{SHOP_ADDRESS}</p>
+      </div>
+
+      <div className="mt-4">
+        <h3 className="mb-2 text-sm font-medium text-neutral-700">مسیریابی با</h3>
+        <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {SHOP_DIRECTIONS.map((app) => (
+            <li key={app.id}>
+              <a
+                href={app.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`مسیریابی به فروشگاه با ${app.label}`}
+                className="flex items-center justify-center rounded-xl border border-gold-100 px-3 py-2.5 text-sm font-medium text-gold-700 transition-colors hover:bg-gold-50"
+              >
+                {app.label}
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );
