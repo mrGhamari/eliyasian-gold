@@ -1,4 +1,9 @@
-import { SHOP_ADDRESS, SHOP_DIRECTIONS, SHOP_PHONES } from "@/lib/site";
+import {
+  SHOP_ADDRESS,
+  SHOP_DIRECTIONS,
+  SHOP_HOURS_LABEL,
+  SHOP_PHONES,
+} from "@/lib/site";
 
 function PhoneIcon() {
   return (
@@ -13,6 +18,24 @@ function PhoneIcon() {
       strokeLinejoin="round"
     >
       <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+    </svg>
+  );
+}
+
+function ClockIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      className="size-5 shrink-0 text-gold-600"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
     </svg>
   );
 }
@@ -35,7 +58,7 @@ function LocationIcon() {
   );
 }
 
-/** Shop contact section: tappable phone numbers, the store address and directions. */
+/** Shop contact section: tappable phone numbers, address, opening hours and directions. */
 export function ContactCard() {
   return (
     <section
@@ -64,7 +87,17 @@ export function ContactCard() {
 
       <div className="mt-4 flex items-start gap-3 border-t border-gold-100 pt-4">
         <LocationIcon />
-        <p className="text-sm leading-7 text-neutral-700">{SHOP_ADDRESS}</p>
+        <address className="text-sm leading-7 not-italic text-neutral-700">
+          {SHOP_ADDRESS}
+        </address>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <ClockIcon />
+        <p className="text-sm text-neutral-700">
+          <span className="font-medium">ساعت کاری: </span>
+          {SHOP_HOURS_LABEL}
+        </p>
       </div>
 
       <div className="mt-4">
