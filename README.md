@@ -63,6 +63,15 @@ Scripts: `npm run lint` · `npm run typecheck` · `npm run test` · `npm run bui
 
 ## Deploying to Liara
 
+### Automatic (GitHub Actions)
+
+`.github/workflows/ci.yml` runs lint, typecheck, tests, `next build` and a Docker build on every PR. Every push to `main` runs the same checks and then `liara deploy`. One-time setup:
+
+1. Create the app `elyasian-gold` (Docker platform) in the Liara dashboard and set its env vars (below).
+2. Copy an API token from Liara (Account → API) and add it as the repository secret `LIARA_API_TOKEN` (GitHub → Settings → Secrets and variables → Actions).
+
+### Manual
+
 ```bash
 npm i -g @liara/cli
 liara login
