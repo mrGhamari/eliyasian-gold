@@ -21,14 +21,16 @@ const vazirmatn = localFont({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
+  // Origin only: file-based metadata (OG/Twitter images) already carries any
+  // basePath, so a path here would be applied twice. Page URLs are absolute.
+  metadataBase: new URL(new URL(SITE_URL).origin),
   title: SITE_TITLE,
   description: SITE_DESCRIPTION,
-  alternates: { canonical: "/" },
+  alternates: { canonical: `${SITE_URL}/` },
   openGraph: {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    url: "/",
+    url: `${SITE_URL}/`,
     siteName: SITE_NAME,
     locale: "fa_IR",
     type: "website",

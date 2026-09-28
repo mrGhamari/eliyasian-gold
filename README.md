@@ -61,14 +61,21 @@ Scripts: `npm run lint` · `npm run typecheck` · `npm run test` · `npm run bui
 - The upstream fetch bypasses the Next.js Data Cache (`no-store`) with a 5 s timeout; the in-memory TTL cache alone enforces the quota (see above).
 - Talasea's `disableBuy` / `disableSell` flags map to `upstreamFrozen`: if **either** side of trading is halted, the quote isn't safe to sell against, so the site behaves exactly as with `PRICE_FREEZE=true` (Elyasian prices withheld, freeze banner shown) until the flags clear. `PRICE_FREEZE` remains the manual override on top. The flags are optional in validation — if Talasea ever drops them, prices keep flowing (unfrozen) rather than failing the feed.
 
+## GitHub Pages (current live site)
+
+`.github/workflows/pages.yml` publishes a **static** build to `https://<owner>.github.io/<repo>/` on every push to `main` and every ~10 minutes. One-time setup: repo **Settings → Pages → Source: GitHub Actions**.
+
+How the static build differs (`scripts/build-pages.sh`, which builds from a temporary copy; the server build is untouched):
+
+- No server: `/api/*` is dropped, pages render once at build time, and the client polls a static `price.json` instead of `/api/price`.
+- Prices are as fresh as the last scheduled build (~10 min, sometimes later — GitHub can delay scheduled runs). `STALE_WARN_SECONDS=1800` there, and staleness is computed from `fetchedAt` on the client clock.
+- If the upstream fetch fails, the build fails and the previous deployment stays live; mock data is never deployed.
+- No `/api/health`; monitor the workflow's runs instead.
+- GitHub disables scheduled workflows in public repos after 60 days without repository activity.
+
+For real-time prices and health monitoring, deploy the server build (Docker) to a host.
+
 ## Deploying to Liara
-
-### Automatic (GitHub Actions)
-
-`.github/workflows/ci.yml` runs lint, typecheck, tests, `next build` and a Docker build on every PR. Every push to `main` runs the same checks and then `liara deploy`. One-time setup:
-
-1. Create the app `elyasian-gold` (Docker platform) in the Liara dashboard and set its env vars (below).
-2. Copy an API token from Liara (Account → API) and add it as the repository secret `LIARA_API_TOKEN` (GitHub → Settings → Secrets and variables → Actions).
 
 ### Manual
 

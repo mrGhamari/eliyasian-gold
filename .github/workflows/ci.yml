@@ -1,10 +1,9 @@
-name: CI / Deploy
+name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -41,33 +40,20 @@ jobs:
           push: false
           tags: elyasian-gold:ci
 
-  deploy:
-    name: Deploy to Liara
-    needs: [verify, docker]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+  static-export:
+    name: Static export (GitHub Pages) builds
     runs-on: ubuntu-latest
-    # Serialize deploys; never cancel one mid-flight.
-    concurrency:
-      group: liara-production
-      cancel-in-progress: false
-    environment:
-      name: production
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Check Liara token
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # Mock data so this check doesn't depend on the upstream being up.
+      - run: ./scripts/build-pages.sh
         env:
-          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
-        run: |
-          if [ -z "$LIARA_TOKEN" ]; then
-            echo "::error::Repository secret LIARA_API_TOKEN is not set (Settings → Secrets and variables → Actions)."
-            exit 1
-          fi
-      - name: Deploy (app name and port from liara.json)
-        env:
-          LIARA_TOKEN: ${{ secrets.LIARA_API_TOKEN }}
-        run: |
-          npm i -g @liara/cli
-          liara deploy --api-token="$LIARA_TOKEN" --no-app-logs
+          PRICE_PROVIDER: mock
+          ALLOW_MOCK_IN_PRODUCTION: "true"
+          PAGES_BASE_PATH: /${{ github.event.repository.name }}
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}

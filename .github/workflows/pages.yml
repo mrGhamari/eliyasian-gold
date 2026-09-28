@@ -1,0 +1,53 @@
+name: GitHub Pages
+
+# Static hosting has no server, so prices are fetched at build time and the
+# site is rebuilt on a schedule (~144 upstream requests/day, well under the
+# 1500/day cap). GitHub may start scheduled runs late under load; the UI's
+# staleness warning covers that. A failed fetch fails the build, so the
+# previous deployment stays live.
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PRICE_PROVIDER: talasea
+      # Rebuilds every ~10 min and scheduled runs can lag, so warn at 30 min.
+      STALE_WARN_SECONDS: "1800"
+      PAGES_BASE_PATH: /${{ github.event.repository.name }}
+      SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: ./scripts/build-pages.sh
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
