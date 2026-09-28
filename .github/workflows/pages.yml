@@ -9,7 +9,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "*/10 * * * *"
+    # Off the round minutes (:03, :13, …): GitHub delays or drops scheduled
+    # runs most often at :00/:10/… when load peaks.
+    - cron: "3-59/10 * * * *"
   workflow_dispatch:
 
 permissions:
