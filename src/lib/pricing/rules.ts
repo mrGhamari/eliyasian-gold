@@ -27,7 +27,9 @@ export interface PricingRules {
 function intEnv(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw === undefined || raw.trim() === "") return fallback;
-  const parsed = Number.parseInt(raw, 10);
+  // Whole-string match: parseInt alone would accept "500000abc" or "1e6" (→ 1).
+  const trimmed = raw.trim();
+  const parsed = /^[-+]?\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
   if (!Number.isSafeInteger(parsed)) {
     console.warn(
       JSON.stringify({ level: "warn", event: "invalid_int_env", name, raw }),
@@ -51,13 +53,33 @@ export function getRules(): PricingRules {
       return false;
     });
 
+  // Sell price is market + 50,000 toman; buy price is market − 50,000 toman.
+  // (50,000 toman = 500,000 rials.)
+  const sellAdjustmentRials = intEnv("PRICE_ADJ_SELL_RIALS", 500_000);
+  const buyAdjustmentRials = intEnv("PRICE_ADJ_BUY_RIALS", -500_000);
+
+  // Fail closed: buying above the selling price is always a misconfiguration
+  // (e.g. a missing minus sign), and publishing it would lose money.
+  const invertedSpread = buyAdjustmentRials > sellAdjustmentRials;
+  if (invertedSpread) {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        event: "inverted_price_spread",
+        sellAdjustmentRials,
+        buyAdjustmentRials,
+        action: "freeze",
+      }),
+    );
+  }
+
   return {
-    // Sell price is market + 50,000 toman; buy price is market − 50,000 toman.
-    // (50,000 toman = 500,000 rials.)
-    sellAdjustmentRials: intEnv("PRICE_ADJ_SELL_RIALS", 500_000),
-    buyAdjustmentRials: intEnv("PRICE_ADJ_BUY_RIALS", -500_000),
+    sellAdjustmentRials,
+    buyAdjustmentRials,
     adjustmentItems,
-    freeze: (process.env.PRICE_FREEZE ?? "false").trim().toLowerCase() === "true",
+    freeze:
+      invertedSpread ||
+      (process.env.PRICE_FREEZE ?? "false").trim().toLowerCase() === "true",
     staleWarnSeconds: intEnv("STALE_WARN_SECONDS", 600),
     // Rounding is off (N=1) by default; per-item overrides can be added here
     // (or by the future DB-backed rules source) without touching callers.

@@ -17,14 +17,21 @@ import type { MarketSnapshot, PriceProvider } from "./types";
  * snapshot contains a single gold_18 item; the UI hides the market table
  * when those items are absent.
  *
- * The fetch uses the Next.js Data Cache (revalidate: 60) in addition to the
- * in-memory TTL cache in getPrices(), keeping upstream usage ~1 req / 60s.
+ * The fetch deliberately bypasses the Next.js Data Cache (`no-store`): the
+ * in-memory TTL cache in getPrices() already keeps upstream usage at
+ * ~1 req / 60s, and the Data Cache would serve an old body (stale-while-
+ * revalidate, and kept indefinitely when revalidation fails) that we'd then
+ * stamp with a fresh `fetchedAt` — hiding outages from the staleness warning
+ * and /api/health. A timeout keeps a hung upstream from hanging page renders.
  */
 
 const ENDPOINT = "https://api.talasea.ir/api/market/getGoldPrice";
 
 /** Toman/milligram → integer rials/gram. */
 const RIALS_PER_GRAM_FACTOR = 10_000;
+
+/** Abort a slow/hung upstream so renders and /api/price stay responsive. */
+export const UPSTREAM_TIMEOUT_MS = 5_000;
 
 // Derived strictly from the real sample response (2026-07-05). Only the
 // fields we consume are validated; unknown fields pass through untouched.
@@ -41,7 +48,8 @@ export class TalaseaProvider implements PriceProvider {
 
   async fetchMarketSnapshot(): Promise<MarketSnapshot> {
     const res = await fetch(ENDPOINT, {
-      next: { revalidate: 60, tags: ["prices"] },
+      cache: "no-store",
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     if (!res.ok) {
       throw new Error(`talasea upstream returned HTTP ${res.status}`);

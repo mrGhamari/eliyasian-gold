@@ -49,4 +49,22 @@ describe("getRules (env-backed)", () => {
     expect(getRules().sellAdjustmentRials).toBe(500_000);
     expect(warn).toHaveBeenCalled();
   });
+
+  it("rejects partially numeric values instead of truncating them", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("PRICE_ADJ_SELL_RIALS", "1e6");
+    expect(getRules().sellAdjustmentRials).toBe(500_000);
+    vi.stubEnv("PRICE_ADJ_SELL_RIALS", "700000abc");
+    expect(getRules().sellAdjustmentRials).toBe(500_000);
+    expect(warn).toHaveBeenCalledTimes(2);
+  });
+
+  it("freezes when the buy adjustment exceeds the sell adjustment", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("PRICE_FREEZE", "false");
+    vi.stubEnv("PRICE_ADJ_SELL_RIALS", "500000");
+    vi.stubEnv("PRICE_ADJ_BUY_RIALS", "500001"); // missing minus sign
+    expect(getRules().freeze).toBe(true);
+    expect(error).toHaveBeenCalled();
+  });
 });

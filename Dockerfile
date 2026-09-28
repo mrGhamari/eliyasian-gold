@@ -45,8 +45,7 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# ISR regenerates pages into .next/cache at runtime — must be writable by the
-# app user (mount a volume here in compose to persist it across restarts).
+# Next writes runtime caches under .next/cache — must be writable by the app user.
 RUN mkdir -p .next/cache && chown -R nextjs:nodejs .next
 
 USER nextjs
@@ -55,7 +54,9 @@ EXPOSE 3000
 # Liveness only: `/` returns 200 whenever the process is up. A stale upstream
 # must NOT mark the container unhealthy — that's what /api/health (503 on stale)
 # is for, as an EXTERNAL alerting surface, not a container restart trigger.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+# Timeout exceeds the 5s upstream timeout, so a render that waits on a slow
+# upstream refresh is never mistaken for a dead process.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
   CMD wget -q --spider http://127.0.0.1:3000/ || exit 1
 
 ENTRYPOINT ["/sbin/tini", "--"]

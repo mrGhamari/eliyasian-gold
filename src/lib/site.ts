@@ -1,5 +1,11 @@
-/** Public site origin — used for canonical URL, Open Graph, sitemap, robots. */
-export const SITE_URL = process.env.SITE_URL ?? "http://localhost:3000";
+/**
+ * Public site origin — used for canonical URL, Open Graph, sitemap, robots.
+ * Read at request time (every consumer is dynamic), so the runtime env set on
+ * the host applies without rebuilding. `||` so an empty value also falls back.
+ */
+export const SITE_URL = (
+  process.env.SITE_URL?.trim() || "http://localhost:3000"
+).replace(/\/+$/, "");
 
 export const SITE_NAME = "الیاسیان";
 

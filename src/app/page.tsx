@@ -12,9 +12,10 @@ import {
   SITE_URL,
 } from "@/lib/site";
 
-// ISR: rendered HTML always contains real price digits (SEO requirement) and
-// regenerates at most once per 60s regardless of traffic.
-export const revalidate = 60;
+// Rendered per request (see `dynamic` in layout.tsx), so the HTML always
+// carries current price digits (SEO) and nothing is baked in at build time.
+// getPrices() serves from its 60s in-memory cache, so traffic never multiplies
+// upstream calls.
 
 const jsonLd = {
   "@context": "https://schema.org",

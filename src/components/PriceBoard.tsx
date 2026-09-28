@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PriceResult } from "@/lib/prices";
 import { FreshnessBadge } from "./FreshnessBadge";
 import { MarketTable } from "./MarketTable";
+import { MockDataBanner } from "./MockDataBanner";
 import { PriceCard } from "./PriceCard";
 
 const POLL_MS = 45_000;
@@ -52,11 +53,36 @@ export function PriceBoard({ initialData }: { initialData: PriceResult }) {
     anchor.current = { atMs: Date.now(), staleSeconds: initialData.staleSeconds };
   }, [initialData.staleSeconds]);
 
+  // Poll only while the tab is visible; refresh immediately on return so a
+  // backgrounded tab never shows old numbers.
+  const hasSnapshot = data.snapshot !== null;
   useEffect(() => {
-    const interval = data.snapshot ? POLL_MS : RETRY_MS;
-    const id = setInterval(refresh, interval);
-    return () => clearInterval(id);
-  }, [refresh, data.snapshot]);
+    const interval = hasSnapshot ? POLL_MS : RETRY_MS;
+    let id: ReturnType<typeof setInterval> | undefined;
+
+    const start = () => {
+      if (id === undefined) id = setInterval(refresh, interval);
+    };
+    const stop = () => {
+      clearInterval(id);
+      id = undefined;
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [refresh, hasSnapshot]);
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -76,6 +102,7 @@ export function PriceBoard({ initialData }: { initialData: PriceResult }) {
 
   return (
     <div className="flex flex-col gap-6">
+      {snapshot?.mock && <MockDataBanner />}
       <PriceCard
         item={gold}
         frozen={snapshot?.frozen ?? false}

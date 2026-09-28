@@ -15,6 +15,11 @@ const vazirmatn = localFont({
   variable: "--font-vazirmatn",
 });
 
+// Render every page at request time. A static prerender would run at `next
+// build`, where the runtime env (PRICE_PROVIDER, SITE_URL, …) is absent:
+// the HTML would ship build-time prices and localhost canonical/OG URLs.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: SITE_TITLE,
@@ -29,7 +34,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
   },
