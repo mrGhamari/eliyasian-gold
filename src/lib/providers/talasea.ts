@@ -43,12 +43,22 @@ const talaseaResponseSchema = z.object({
   disableSell: z.boolean().optional(),
 });
 
+/**
+ * Server build: `no-store` (see above). Static export (GitHub Pages) renders
+ * once at build time, where Next.js rejects `no-store` fetches outright; there
+ * `force-cache` is still a fresh fetch (each CI build starts with an empty
+ * Data Cache) and lets the page and price.json share one upstream request.
+ */
+export function fetchCacheMode(): RequestCache {
+  return process.env.STATIC_EXPORT === "true" ? "force-cache" : "no-store";
+}
+
 export class TalaseaProvider implements PriceProvider {
   readonly name = "talasea";
 
   async fetchMarketSnapshot(): Promise<MarketSnapshot> {
     const res = await fetch(ENDPOINT, {
-      cache: "no-store",
+      cache: fetchCacheMode(),
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     if (!res.ok) {
