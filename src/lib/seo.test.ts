@@ -57,12 +57,30 @@ describe("buildJsonLd", () => {
     );
   });
 
+  it("publishes the opening hours: Saturday–Thursday 10:00–18:00", async () => {
+    const { buildJsonLd } = await loadSeo("https://example.ir");
+    const store = byType(buildJsonLd()["@graph"] as Node[], "JewelryStore");
+    expect(store.openingHoursSpecification).toEqual([
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: [
+          "https://schema.org/Saturday",
+          "https://schema.org/Sunday",
+          "https://schema.org/Monday",
+          "https://schema.org/Tuesday",
+          "https://schema.org/Wednesday",
+          "https://schema.org/Thursday",
+        ],
+        opens: "10:00",
+        closes: "18:00",
+      },
+    ]);
+  });
+
   it("omits unknown facts instead of guessing them", async () => {
     const { buildJsonLd } = await loadSeo("https://example.ir");
     const graph = buildJsonLd()["@graph"] as Node[];
-    const store = byType(graph, "JewelryStore");
-    expect(store).not.toHaveProperty("openingHoursSpecification");
-    expect(store).not.toHaveProperty("sameAs");
+    expect(byType(graph, "JewelryStore")).not.toHaveProperty("sameAs");
     expect(byType(graph, "WebPage")).not.toHaveProperty("dateModified");
   });
 });

@@ -66,7 +66,16 @@ export const SHOP_OPENING_HOURS: readonly {
   )[];
   opens: string;
   closes: string;
-}[] = [];
+}[] = [
+  {
+    days: ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"],
+    opens: "10:00",
+    closes: "18:00",
+  },
+];
+
+/** The same hours, as shown on the page. Keep in sync with SHOP_OPENING_HOURS. */
+export const SHOP_HOURS_LABEL = "شنبه تا پنجشنبه، ساعت ۱۰ صبح تا ۶ عصر";
 
 /**
  * The shop's own profile pages (Google Maps listing, Instagram, Neshan,
