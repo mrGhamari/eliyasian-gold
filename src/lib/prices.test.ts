@@ -50,6 +50,22 @@ describe("getPrices — single cached upstream fetch", () => {
   });
 });
 
+describe("getPrices — concurrency", () => {
+  it("shares one upstream request between concurrent callers", async () => {
+    let resolve: (s: MarketSnapshot) => void = () => {};
+    fetchMock.mockImplementation(
+      () => new Promise<MarketSnapshot>((r) => (resolve = r)),
+    );
+
+    const calls = Array.from({ length: 10 }, () => getPrices());
+    resolve(snapshotAt(Date.now()));
+    const results = await Promise.all(calls);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    for (const r of results) expect(r.snapshot).not.toBeNull();
+  });
+});
+
 describe("getPrices — resilience", () => {
   it("serves last-known-good with its ORIGINAL timestamp when upstream fails", async () => {
     const t0 = Date.now();
@@ -89,6 +105,16 @@ describe("getPrices — resilience", () => {
     expect(result.staleSeconds).toBeNull();
   });
 
+  it("holds the upstream budget during a cold-start outage", async () => {
+    fetchMock.mockRejectedValue(new Error("upstream down"));
+    for (let i = 0; i < 20; i++) await getPrices();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(61_000);
+    await getPrices();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("does not re-hit upstream on every call during a sustained outage", async () => {
     const t0 = Date.now();
     fetchMock.mockImplementationOnce(async () => snapshotAt(t0));
@@ -110,6 +136,7 @@ describe("getPrices — resilience", () => {
     fetchMock.mockRejectedValueOnce(new Error("upstream down"));
     await getPrices();
 
+    vi.advanceTimersByTime(61_000); // next attempt is allowed after the TTL
     const t1 = Date.now();
     fetchMock.mockImplementation(async () => snapshotAt(Date.now()));
     const recovered = await getPrices();

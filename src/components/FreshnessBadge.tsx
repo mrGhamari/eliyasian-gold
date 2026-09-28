@@ -24,10 +24,10 @@ export function FreshnessBadge({
     );
   }
 
+  // No live region here: it would re-announce the time on every poll.
   return (
     <p
       className="inline-flex items-center gap-2 rounded-full bg-neutral-100 px-3 py-1 text-sm text-neutral-600"
-      role="status"
     >
       <span aria-hidden className="live-dot h-2 w-2 rounded-full bg-emerald-500" />
       آخرین به‌روزرسانی:{" "}

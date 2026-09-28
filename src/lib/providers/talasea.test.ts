@@ -50,13 +50,13 @@ describe("TalaseaProvider", () => {
     expect(Number.isNaN(Date.parse(snapshot.fetchedAt))).toBe(false);
   });
 
-  it("uses the Next.js Data Cache options on the upstream fetch", async () => {
+  it("bypasses the Data Cache and bounds the upstream call with a timeout", async () => {
     mockFetchJson(SAMPLE);
     await new TalaseaProvider().fetchMarketSnapshot();
 
     expect(fetch).toHaveBeenCalledWith(
       "https://api.talasea.ir/api/market/getGoldPrice",
-      { next: { revalidate: 60, tags: ["prices"] } },
+      { cache: "no-store", signal: expect.any(AbortSignal) },
     );
   });
 

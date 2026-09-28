@@ -14,13 +14,10 @@ services:
       - .env
     ports:
       - "${PORT:-3000}:3000"
-    volumes:
-      # Persist the ISR page cache across restarts (survives redeploys).
-      - isr-cache:/app/.next/cache
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/"]
       interval: 30s
-      timeout: 5s
+      timeout: 10s
       retries: 3
       start_period: 20s
     logging:
@@ -30,6 +27,3 @@ services:
         max-file: "3"
     security_opt:
       - no-new-privileges:true
-
-volumes:
-  isr-cache:
