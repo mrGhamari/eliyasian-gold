@@ -64,7 +64,9 @@ export function ContactCard() {
 
       <div className="mt-4 flex items-start gap-3 border-t border-gold-100 pt-4">
         <LocationIcon />
-        <p className="text-sm leading-7 text-neutral-700">{SHOP_ADDRESS}</p>
+        <address className="text-sm leading-7 not-italic text-neutral-700">
+          {SHOP_ADDRESS}
+        </address>
       </div>
 
       <div className="mt-4">

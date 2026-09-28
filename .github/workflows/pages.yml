@@ -29,7 +29,12 @@ jobs:
       # Rebuilds every ~10 min and scheduled runs can lag, so warn at 30 min.
       STALE_WARN_SECONDS: "1800"
       PAGES_BASE_PATH: /${{ github.event.repository.name }}
+      # The app lowercases the host, so the owner's casing doesn't matter.
       SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
+      # Optional: Search Console / Bing ownership tokens, set as repository
+      # variables (Settings → Secrets and variables → Actions → Variables).
+      GOOGLE_SITE_VERIFICATION: ${{ vars.GOOGLE_SITE_VERIFICATION }}
+      BING_SITE_VERIFICATION: ${{ vars.BING_SITE_VERIFICATION }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

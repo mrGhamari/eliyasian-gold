@@ -7,7 +7,9 @@ export const dynamic = "force-dynamic";
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
-      url: SITE_URL,
+      url: `${SITE_URL}/`,
+      // Prices change continuously; the page is regenerated with each fetch.
+      lastModified: new Date(),
       changeFrequency: "hourly",
       priority: 1,
     },

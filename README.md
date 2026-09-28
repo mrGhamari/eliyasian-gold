@@ -91,6 +91,29 @@ Set the env vars in the Liara dashboard (or `liara env set ...`): at minimum `SI
 
 The image is a multi-stage Node 20-alpine build of Next.js `output: 'standalone'`; it respects Liara's `PORT` env.
 
+## SEO
+
+In the code (`src/lib/seo.ts`, `src/lib/site.ts`, `src/app/layout.tsx`):
+
+- Server-rendered price digits, Persian date in the header, and a short factual "about" section with the shop's location.
+- Title/description targeting «قیمت طلا امروز» + the shop name and location; canonical, Open Graph and Twitter tags with a lowercase host.
+- JSON-LD `@graph`: `JewelryStore` (name, address, geo, phones, image, logo), `WebSite`, and `WebPage` with `dateModified` = last price fetch.
+- `robots` meta (`max-image-preview: large`), sitemap with `lastModified`, web app manifest, apple-touch icon, theme color, Persian 404 page, `<address>` markup.
+- Optional ownership meta tags from env: `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION` (on GitHub Pages: repository **variables** of the same names).
+
+Facts are never guessed. Fill these in `src/lib/site.ts` once known:
+
+- `SHOP_OPENING_HOURS` → `openingHoursSpecification`.
+- `SHOP_SAME_AS` → `sameAs`: the shop's own Google Maps / Neshan / Balad / Instagram URLs.
+
+Off-site (only the owner can do these, and they matter most for local search):
+
+1. **Google Search Console**: add the site as a URL-prefix property, verify with the meta tag (set `GOOGLE_SITE_VERIFICATION`), submit `sitemap.xml`, request indexing.
+2. **Google Maps / Business Profile**: the shop's map listing is what shows the address and pin next to search results. Name, address and phone must match the site exactly.
+3. **Neshan and Balad** listings, **Bing Webmaster Tools**.
+4. Link the site from the shop's Instagram and other profiles; ask customers for reviews on Google Maps.
+5. **Custom domain**: under `github.io/<repo>` the site can't own `robots.txt` (crawlers only read it at the host root) and ranks as a sub-path of someone else's host. A custom domain fixes both.
+
 ## Monitoring & alerting
 
 - **`GET /api/health`** is the primary alerting surface: `{ ok, lastFetchAt, staleSeconds, provider }`, HTTP 200 when healthy, **503 when `staleSeconds > STALE_WARN_SECONDS`**. Point any external uptime monitor (UptimeRobot, Better Stack, …) at it.
