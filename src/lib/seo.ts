@@ -1,8 +1,12 @@
+import { FAQ } from "./faq";
+import type { PriceResult } from "./prices";
+import { formatRialsAsToman } from "./pricing/money";
 import {
   SHOP_GEO,
   SHOP_LOCALITY,
   SHOP_OPENING_HOURS,
   SHOP_PHONES,
+  SHOP_PRICE_RANGE,
   SHOP_REGION,
   SHOP_SAME_AS,
   SHOP_STREET,
@@ -13,11 +17,43 @@ import {
 } from "./site";
 
 /**
+ * Page <title> and meta description with today's 18k price in them — a price
+ * in the search result snippet is what earns the click for "قیمت طلا امروز".
+ * Falls back to the static copy whenever the number would be wrong to show:
+ * no data, stale data, mock data, or prices frozen (no shop price at all).
+ */
+export function buildPriceMeta(result: PriceResult): {
+  title: string;
+  description: string;
+} {
+  const snapshot = result.snapshot;
+  const gold = snapshot?.items.find((i) => i.key === "gold_18");
+  if (
+    !snapshot ||
+    result.stale ||
+    snapshot.mock ||
+    snapshot.frozen ||
+    gold?.elyasianSellRials === undefined ||
+    gold.elyasianBuyRials === undefined
+  ) {
+    return { title: SITE_TITLE, description: SITE_DESCRIPTION };
+  }
+
+  const sell = formatRialsAsToman(gold.elyasianSellRials);
+  const buy = formatRialsAsToman(gold.elyasianBuyRials);
+  return {
+    title: `قیمت طلا امروز ${sell} تومان | طلای ۱۸ عیار — ${SITE_NAME}`,
+    description: `قیمت فروش هر گرم طلای ۱۸ عیار در ${SITE_NAME} امروز ${sell} تومان و قیمت خرید ${buy} تومان. نرخ لحظه‌ای با به‌روزرسانی خودکار، آدرس و تلفن فروشگاه در بازار زرگرهای تهران.`,
+  };
+}
+
+/**
  * schema.org JSON-LD for the home page. One @graph with stable @ids so
  * search engines read the store, the website and the page as one entity:
  * the JewelryStore (local business: name, address, geo, phones — must match
- * the Google Maps listing exactly), the WebSite, and the WebPage whose
- * dateModified tracks the last successful price fetch.
+ * the Google Maps listing exactly), the WebSite, the WebPage whose
+ * dateModified tracks the last successful price fetch, and the FAQPage that
+ * mirrors the visible FAQ section.
  */
 export function buildJsonLd({
   pageUrl = `${SITE_URL}/`,
@@ -55,6 +91,7 @@ export function buildJsonLd({
     hasMap: `https://www.google.com/maps/search/?api=1&query=${SHOP_GEO.lat},${SHOP_GEO.lng}`,
     areaServed: { "@type": "City", name: SHOP_LOCALITY },
     currenciesAccepted: "IRR",
+    priceRange: SHOP_PRICE_RANGE,
   };
   if (SHOP_OPENING_HOURS.length > 0) {
     store.openingHoursSpecification = SHOP_OPENING_HOURS.map((h) => ({
@@ -92,6 +129,16 @@ export function buildJsonLd({
         publisher: { "@id": storeId },
       },
       page,
+      {
+        "@type": "FAQPage",
+        "@id": `${pageUrl}#faq`,
+        isPartOf: { "@id": `${pageUrl}#webpage` },
+        mainEntity: FAQ.map((f) => ({
+          "@type": "Question",
+          name: f.question,
+          acceptedAnswer: { "@type": "Answer", text: f.answer },
+        })),
+      },
     ],
   };
 }

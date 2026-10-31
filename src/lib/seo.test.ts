@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { PriceResult } from "./prices";
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -77,11 +78,84 @@ describe("buildJsonLd", () => {
     ]);
   });
 
+  it("gives the store a priceRange", async () => {
+    const { buildJsonLd } = await loadSeo("https://example.ir");
+    const store = byType(buildJsonLd()["@graph"] as Node[], "JewelryStore");
+    expect(store.priceRange).toBe("$$");
+  });
+
+  it("mirrors the visible FAQ in a FAQPage tied to the page", async () => {
+    const { buildJsonLd } = await loadSeo("https://example.ir");
+    const { FAQ } = await import("./faq");
+    const faq = byType(buildJsonLd()["@graph"] as Node[], "FAQPage");
+    expect(faq.isPartOf).toEqual({ "@id": "https://example.ir/#webpage" });
+    expect(faq.mainEntity).toEqual(
+      FAQ.map((f) => ({
+        "@type": "Question",
+        name: f.question,
+        acceptedAnswer: { "@type": "Answer", text: f.answer },
+      })),
+    );
+  });
+
   it("omits unknown facts instead of guessing them", async () => {
     const { buildJsonLd } = await loadSeo("https://example.ir");
     const graph = buildJsonLd()["@graph"] as Node[];
     expect(byType(graph, "JewelryStore")).not.toHaveProperty("sameAs");
     expect(byType(graph, "WebPage")).not.toHaveProperty("dateModified");
+  });
+});
+
+describe("buildPriceMeta", () => {
+  function result(overrides: Partial<PriceResult> = {}, snapshot: Node = {}) {
+    return {
+      provider: "talasea",
+      staleSeconds: 30,
+      stale: false,
+      staleWarnSeconds: 600,
+      snapshot: {
+        items: [
+          {
+            key: "gold_18",
+            label: "گرم طلای ۱۸ عیار",
+            currency: "IRR",
+            marketAmount: 255_440_000,
+            elyasianSellRials: 255_940_000,
+            elyasianBuyRials: 254_940_000,
+          },
+        ],
+        fetchedAt: "2026-10-31T07:33:41.439Z",
+        source: "talasea",
+        frozen: false,
+        ...snapshot,
+      },
+      ...overrides,
+    } as PriceResult;
+  }
+
+  it("puts today's sell price in the title and both prices in the description", async () => {
+    const { buildPriceMeta } = await loadSeo("https://example.ir");
+    const meta = buildPriceMeta(result());
+    expect(meta.title).toBe(
+      "قیمت طلا امروز ۲۵٬۵۹۴٬۰۰۰ تومان | طلای ۱۸ عیار — طلا الیاسیان",
+    );
+    expect(meta.description).toContain("امروز ۲۵٬۵۹۴٬۰۰۰ تومان");
+    expect(meta.description).toContain("قیمت خرید ۲۵٬۴۹۴٬۰۰۰ تومان");
+  });
+
+  it.each([
+    ["no data", result({ snapshot: null })],
+    ["stale data", result({ stale: true })],
+    ["mock data", result({}, { mock: true })],
+    ["frozen prices", result({}, { frozen: true })],
+    ["no shop price", result({}, { items: [] })],
+  ])("falls back to the static copy on %s", async (_, input) => {
+    const { buildPriceMeta } = await loadSeo("https://example.ir");
+    const { SITE_TITLE, SITE_DESCRIPTION } = await import("./site");
+    expect(buildPriceMeta(input)).toEqual({
+      title: SITE_TITLE,
+      description: SITE_DESCRIPTION,
+    });
   });
 });
 
