@@ -25,6 +25,34 @@ import type { MarketSnapshot } from "./providers/types";
 
 const TTL_MS = 60_000;
 
+/**
+ * Plausibility guard: a quote that moved more than MAX_JUMP_PERCENT from a
+ * recent last-known-good is treated as an upstream glitch (served as a
+ * failure: last-known-good stays up, the error is logged). Only applied while
+ * last-known-good is younger than JUMP_WINDOW_MS, so a real move during a
+ * long outage is accepted once upstream recovers instead of being blocked
+ * forever.
+ */
+const MAX_JUMP_PERCENT = 20;
+const JUMP_WINDOW_MS = 60 * 60_000;
+
+function implausibleJump(
+  next: MarketSnapshot,
+  prev: MarketSnapshot | null,
+  nowMs: number,
+): string | null {
+  if (!prev || nowMs - Date.parse(prev.fetchedAt) > JUMP_WINDOW_MS) return null;
+  for (const item of next.items) {
+    const before = prev.items.find((p) => p.key === item.key);
+    if (!before || before.amount <= 0) continue;
+    // Integer-only comparison: |Δ| / before > MAX_JUMP_PERCENT / 100.
+    if (Math.abs(item.amount - before.amount) * 100 > before.amount * MAX_JUMP_PERCENT) {
+      return `implausible ${item.key} jump: ${before.amount} -> ${item.amount}`;
+    }
+  }
+  return null;
+}
+
 interface CacheState {
   /** What callers get until the next attempt: fresh data or last-known-good. */
   snapshot: MarketSnapshot | null;
@@ -64,6 +92,8 @@ async function fetchUpstream(state: CacheState): Promise<MarketSnapshot | null> 
   const provider = getPriceProvider();
   try {
     const snapshot = await provider.fetchMarketSnapshot();
+    const jump = implausibleJump(snapshot, state.lastKnownGood, Date.now());
+    if (jump) throw new Error(jump);
     state.snapshot = snapshot;
     state.lastKnownGood = snapshot;
     return snapshot;

@@ -74,6 +74,11 @@ export class TalaseaProvider implements PriceProvider {
 
     const tomanPerMilligram = Number.parseInt(parsed.data.price, 10);
     const rialsPerGram = tomanPerMilligram * RIALS_PER_GRAM_FACTOR;
+    // "0" (or an absurd digit string) passes the schema but would be
+    // published as the shop's price — treat it as an upstream failure.
+    if (!Number.isSafeInteger(rialsPerGram) || rialsPerGram <= 0) {
+      throw new Error(`talasea returned an unusable price: "${parsed.data.price}"`);
+    }
 
     // Either flag means Talasea has halted a side of trading, so its quote
     // is not safe to sell against — surface it as an upstream freeze.

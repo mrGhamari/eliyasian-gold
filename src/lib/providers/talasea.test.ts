@@ -94,6 +94,15 @@ describe("TalaseaProvider", () => {
     expect(snapshot.upstreamFrozen).toBeUndefined();
   });
 
+  it("rejects a zero or overflowing price instead of publishing it", async () => {
+    for (const price of ["0", "000", "9".repeat(30)]) {
+      mockFetchJson({ ...SAMPLE, price });
+      await expect(new TalaseaProvider().fetchMarketSnapshot()).rejects.toThrow(
+        "unusable price",
+      );
+    }
+  });
+
   it("throws on non-OK upstream status", async () => {
     mockFetchJson({}, 502);
     await expect(new TalaseaProvider().fetchMarketSnapshot()).rejects.toThrow(
