@@ -78,6 +78,13 @@ export const SHOP_OPENING_HOURS: readonly {
 export const SHOP_HOURS_LABEL = "شنبه تا پنجشنبه، ساعت ۱۰ صبح تا ۶ عصر";
 
 /**
+ * schema.org `priceRange` for the store: Google's relative scale of currency
+ * signs ("$" cheap … "$$$$" expensive), the recommended form for a local
+ * business. Change it if the shop positions itself differently.
+ */
+export const SHOP_PRICE_RANGE = "$$";
+
+/**
  * The shop's own profile pages (Google Maps listing, Instagram, Neshan,
  * Balad, …) for JSON-LD `sameAs`, which ties this site to those profiles.
  * Only the shop's own listing URLs belong here — not generic map links.

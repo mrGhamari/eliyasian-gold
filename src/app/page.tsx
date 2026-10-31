@@ -1,14 +1,26 @@
+import type { Metadata } from "next";
 import { ContactCard } from "@/components/ContactCard";
 import { Disclaimer } from "@/components/Disclaimer";
+import { Faq } from "@/components/Faq";
 import { PriceBoard } from "@/components/PriceBoard";
 import { getPrices } from "@/lib/prices";
-import { buildJsonLd, formatPersianDate, jsonLdScript } from "@/lib/seo";
+import {
+  buildJsonLd,
+  buildPriceMeta,
+  formatPersianDate,
+  jsonLdScript,
+} from "@/lib/seo";
 import { SITE_NAME } from "@/lib/site";
 
 // Rendered per request (see `dynamic` in layout.tsx), so the HTML always
 // carries current price digits (SEO) and nothing is baked in at build time.
 // getPrices() serves from its 60s in-memory cache, so traffic never multiplies
-// upstream calls.
+// upstream calls — calling it here and in Home() is one upstream fetch.
+
+/** Title/description carry today's price; Open Graph stays from layout.tsx. */
+export async function generateMetadata(): Promise<Metadata> {
+  return buildPriceMeta(await getPrices());
+}
 
 export default async function Home() {
   const initialData = await getPrices();
@@ -47,6 +59,7 @@ export default async function Home() {
               با فروشگاه تماس بگیرید یا با دکمه‌های مسیریابی به فروشگاه بیایید.
             </p>
           </section>
+          <Faq />
         </div>
       </main>
 
