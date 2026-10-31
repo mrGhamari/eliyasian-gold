@@ -2,7 +2,7 @@
 # Multi-stage build of the Next.js `output: 'standalone'` server.
 # Final image ships only the traced runtime (no dev deps, no source).
 
-ARG NODE_IMAGE=node:20.18-alpine
+ARG NODE_IMAGE=node:24-alpine
 
 # ── deps: install node_modules with a persistent npm cache ───────────────────
 FROM ${NODE_IMAGE} AS deps

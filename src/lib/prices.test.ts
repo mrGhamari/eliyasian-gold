@@ -144,3 +144,41 @@ describe("getPrices — resilience", () => {
     expect(recovered.stale).toBe(false);
   });
 });
+
+describe("getPrices — plausibility guard", () => {
+  function snapshotWith(amount: number, nowMs: number): MarketSnapshot {
+    return { ...snapshotAt(nowMs), items: [{ key: "gold_18", currency: "IRR", amount }] };
+  }
+
+  it("rejects a >20% jump from a recent last-known-good and keeps serving it", async () => {
+    const t0 = Date.now();
+    fetchMock.mockImplementationOnce(async () => snapshotWith(100_000_000, t0));
+    await getPrices();
+
+    vi.advanceTimersByTime(61_000);
+    fetchMock.mockImplementationOnce(async () => snapshotWith(50_000_000, Date.now()));
+    const result = await getPrices();
+
+    expect(result.snapshot?.items[0].marketAmount).toBe(100_000_000);
+    expect(result.snapshot?.fetchedAt).toBe(new Date(t0).toISOString());
+    expect(console.error).toHaveBeenCalled();
+  });
+
+  it("accepts normal moves", async () => {
+    fetchMock.mockImplementationOnce(async () => snapshotWith(100_000_000, Date.now()));
+    await getPrices();
+
+    vi.advanceTimersByTime(61_000);
+    fetchMock.mockImplementationOnce(async () => snapshotWith(105_000_000, Date.now()));
+    expect((await getPrices()).snapshot?.items[0].marketAmount).toBe(105_000_000);
+  });
+
+  it("accepts a large move after a long outage instead of blocking forever", async () => {
+    fetchMock.mockImplementationOnce(async () => snapshotWith(100_000_000, Date.now()));
+    await getPrices();
+
+    vi.advanceTimersByTime(2 * 60 * 60_000);
+    fetchMock.mockImplementationOnce(async () => snapshotWith(130_000_000, Date.now()));
+    expect((await getPrices()).snapshot?.items[0].marketAmount).toBe(130_000_000);
+  });
+});
